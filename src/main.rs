@@ -1,10 +1,12 @@
 use futures_util::StreamExt;
+use reqwest::header::RANGE;
 use reqwest::Client;
 use std::env;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
-use tokio::fs::{self, File};
-use tokio::io::AsyncWriteExt;
+use tokio::fs::{self, File, OpenOptions};
+use tokio::io::{AsyncSeekExt, AsyncWriteExt};
+use tokio::io::SeekFrom;
 
 fn filename_from_url(url: &str) -> String {
     url.trim_end_matches('/')
@@ -96,19 +98,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .user_agent("NovaDM/0.1")
         .build()?;
 
-    let response = client.get(url).send().await?;
+    // First request: discover the filename.
+    let initial_response = client.get(url).send().await?;
 
-    if !response.status().is_success() {
+    if !initial_response.status().is_success() {
         return Err(format!(
             "Download failed: HTTP {}",
-            response.status()
+            initial_response.status()
         )
         .into());
     }
 
-    let total_size = response.content_length();
-
-    let filename = response
+    let filename = initial_response
         .headers()
         .get(reqwest::header::CONTENT_DISPOSITION)
         .and_then(|value| value.to_str().ok())
@@ -126,25 +127,107 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .map_err(|_| "Could not determine HOME directory")?;
 
     let download_directory = home.join("Downloads");
-
     fs::create_dir_all(&download_directory).await?;
 
-    let output_path = unique_path(&download_directory, &filename);
+    let final_path = unique_path(&download_directory, &filename);
 
-    println!("File: {}", output_path.display());
+    // Temporary file used while downloading.
+    let part_path = final_path.with_extension(
+        format!(
+            "{}.part",
+            final_path
+                .extension()
+                .and_then(|e| e.to_str())
+                .unwrap_or("download")
+        )
+    );
+
+    let existing_size = match fs::metadata(&part_path).await {
+        Ok(metadata) => metadata.len(),
+        Err(_) => 0,
+    };
+
+    let response;
+
+    let mut downloaded: u64;
+
+    if existing_size > 0 {
+        println!(
+            "Found partial download: {}",
+            format_bytes(existing_size)
+        );
+        println!("Attempting to resume...");
+
+        let resume_response = client
+            .get(url)
+            .header(RANGE, format!("bytes={}-", existing_size))
+            .send()
+            .await?;
+
+        if resume_response.status() == reqwest::StatusCode::PARTIAL_CONTENT {
+            println!("✓ Server supports resume.");
+
+            response = resume_response;
+            downloaded = existing_size;
+        } else {
+            println!("Server did not accept the resume request.");
+            println!("Starting this download again.");
+
+            response = client.get(url).send().await?;
+
+            if !response.status().is_success() {
+                return Err(format!(
+                    "Download failed: HTTP {}",
+                    response.status()
+                )
+                .into());
+            }
+
+            downloaded = 0;
+        }
+    } else {
+        response = initial_response;
+        downloaded = 0;
+    }
+
+    let remaining_size = response.content_length();
+
+    let total_size = if downloaded > 0 {
+        remaining_size.map(|remaining| downloaded + remaining)
+    } else {
+        remaining_size
+    };
+
+    println!("File: {}", final_path.display());
 
     match total_size {
         Some(size) => println!("Size: {}", format_bytes(size)),
         None => println!("Size: unknown"),
     }
 
+    if downloaded > 0 {
+        println!("Already downloaded: {}", format_bytes(downloaded));
+    }
+
+    println!();
+    println!("Press Ctrl+C to interrupt.");
+    println!("Run the same command again to resume.");
     println!();
 
-    let mut file = File::create(&output_path).await?;
+    let mut file = if downloaded > 0 {
+        let mut file = OpenOptions::new()
+            .write(true)
+            .open(&part_path)
+            .await?;
+
+        file.seek(SeekFrom::Start(downloaded)).await?;
+        file
+    } else {
+        File::create(&part_path).await?
+    };
 
     let mut stream = response.bytes_stream();
 
-    let mut downloaded: u64 = 0;
     let start = Instant::now();
     let mut last_display = Instant::now();
 
@@ -167,7 +250,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             match total_size {
                 Some(total) => {
                     let percent = downloaded as f64 / total as f64 * 100.0;
-
                     let remaining = total.saturating_sub(downloaded);
 
                     let eta = if speed > 0.0 {
@@ -202,11 +284,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     file.flush().await?;
+    drop(file);
+
+    // Only rename after the entire download has completed.
+    fs::rename(&part_path, &final_path).await?;
 
     println!();
     println!();
     println!("✓ Download complete!");
-    println!("✓ Saved to: {}", output_path.display());
+    println!("✓ Saved to: {}", final_path.display());
 
     Ok(())
 }
