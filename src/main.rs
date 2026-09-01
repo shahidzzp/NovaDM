@@ -1,5 +1,6 @@
 mod download;
 mod job;
+mod manager;
 
 use download::{
     download_multi,
@@ -7,7 +8,7 @@ use download::{
     MULTI_CONNECTION_MIN_SIZE,
 };
 
-use job::DownloadJob;
+use manager::DownloadManager;
 
 use reqwest::header::{CONTENT_DISPOSITION, RANGE};
 use reqwest::Client;
@@ -67,7 +68,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if args.len() != 2 {
         println!("NovaDM");
-        println!("Usage: novadm <URL>");
+        println!();
+        println!("Usage:");
+        println!("  novadm <URL>");
         return Ok(());
     }
 
@@ -79,6 +82,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!();
 
     println!("URL: {}", url);
+    println!();
 
     let client = Client::builder()
         .user_agent("NovaDM/0.1")
@@ -139,6 +143,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     /*
+     * Create the download manager.
+     */
+    let mut manager = DownloadManager::new();
+
+    /*
      * Check for an existing partial download.
      */
     if let Ok(metadata) = fs::metadata(&part_path).await {
@@ -167,15 +176,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 println!("✓ Server supports resume.");
                 println!();
 
-                let mut job = DownloadJob::new(
-                    1,
+                let job_id = manager.add_job(
                     url.to_string(),
                     filename.clone(),
                     final_path.clone(),
                     None,
                 );
 
-                job.start();
+                println!(
+                    "Download job created: #{}",
+                    job_id
+                );
+
+                manager.start_job(job_id);
 
                 let result = download_single(
                     resume_response,
@@ -186,9 +199,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .await;
 
                 if result.is_ok() {
-                    job.complete();
+                    manager.complete_job(job_id);
                 } else {
-                    job.fail();
+                    manager.fail_job(job_id);
                 }
 
                 return result;
@@ -236,22 +249,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("File: {}", final_path.display());
 
     match total_size {
-        Some(size) => println!(
-            "Size: {:.2} MB",
-            size as f64 / 1_048_576.0
-        ),
-        None => println!("Size: unknown"),
+        Some(size) => {
+            println!(
+                "Size: {:.2} MB",
+                size as f64 / 1_048_576.0
+            );
+        }
+
+        None => {
+            println!("Size: unknown");
+        }
     }
 
     /*
-     * Create the download job.
+     * Add the download to the manager.
      */
-    let mut job = DownloadJob::new(
-        1,
+    let job_id = manager.add_job(
         url.to_string(),
         filename.clone(),
         final_path.clone(),
         total_size,
+    );
+
+    println!(
+        "Download job created: #{}",
+        job_id
     );
 
     /*
@@ -265,12 +287,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("File size unknown.");
             println!("Using single-connection mode.");
 
-            job.start();
+            manager.start_job(job_id);
 
             let response = client.get(url).send().await?;
 
             if !response.status().is_success() {
-                job.fail();
+                manager.fail_job(job_id);
 
                 return Err(format!(
                     "Download failed: HTTP {}",
@@ -288,9 +310,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .await;
 
             if result.is_ok() {
-                job.complete();
+                manager.complete_job(job_id);
             } else {
-                job.fail();
+                manager.fail_job(job_id);
             }
 
             return result;
@@ -305,12 +327,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("File is smaller than 10 MB.");
         println!("Using single-connection mode.");
 
-        job.start();
+        manager.start_job(job_id);
 
         let response = client.get(url).send().await?;
 
         if !response.status().is_success() {
-            job.fail();
+            manager.fail_job(job_id);
 
             return Err(format!(
                 "Download failed: HTTP {}",
@@ -328,9 +350,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .await;
 
         if result.is_ok() {
-            job.complete();
+            manager.complete_job(job_id);
         } else {
-            job.fail();
+            manager.fail_job(job_id);
         }
 
         return result;
@@ -362,7 +384,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         drop(range_test);
 
-        job.start();
+        manager.start_job(job_id);
 
         let result = download_multi(
             &client,
@@ -373,14 +395,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .await;
 
         if result.is_ok() {
-            job.complete();
+            manager.complete_job(job_id);
         } else {
-            job.fail();
+            manager.fail_job(job_id);
         }
 
         return result;
     }
 
+    /*
+     * Server does not support Range.
+     */
     println!(
         "Server does not support HTTP Range requests."
     );
@@ -389,12 +414,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     drop(range_test);
 
-    job.start();
+    manager.start_job(job_id);
 
     let response = client.get(url).send().await?;
 
     if !response.status().is_success() {
-        job.fail();
+        manager.fail_job(job_id);
 
         return Err(format!(
             "Download failed: HTTP {}",
@@ -412,9 +437,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     .await;
 
     if result.is_ok() {
-        job.complete();
+        manager.complete_job(job_id);
     } else {
-        job.fail();
+        manager.fail_job(job_id);
     }
 
     result
