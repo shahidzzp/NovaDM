@@ -1,19 +1,17 @@
-use adw::prelude::*;
 use gtk::prelude::*;
-
-use adw::Application;
 use gtk::{
-    Align,
+    ApplicationWindow,
     Box as GtkBox,
     Button,
-    CssProvider,
-    Entry,
     Label,
     Orientation,
     ProgressBar,
     ScrolledWindow,
     Separator,
 };
+
+use adw::prelude::*;
+use adw::Application;
 
 const APP_ID: &str = "com.novadm.NovaDM";
 
@@ -35,35 +33,33 @@ fn build_ui(app: &Application) {
         .title("NovaDM")
         .default_width(1280)
         .default_height(820)
-        .width_request(1000)
-        .height_request(650)
+        .resizable(true)
         .build();
 
-    // ============================================================
-    // ROOT
-    // ============================================================
+    let main_box = GtkBox::new(Orientation::Horizontal, 0);
+    main_box.add_css_class("main-window");
 
-    let root = GtkBox::new(Orientation::Horizontal, 0);
-    root.add_css_class("app-root");
+    let sidebar = build_sidebar();
+    main_box.append(&sidebar);
 
-    // ============================================================
-    // SIDEBAR
-    // ============================================================
+    let content = build_content();
+    main_box.append(&content);
 
+    window.set_content(Some(&main_box));
+    window.present();
+}
+
+fn build_sidebar() -> GtkBox {
     let sidebar = GtkBox::new(Orientation::Vertical, 0);
-    sidebar.set_width_request(245);
+    sidebar.set_width_request(250);
     sidebar.add_css_class("sidebar");
 
-    // ------------------------------------------------------------
-    // LOGO
-    // ------------------------------------------------------------
-
-    let logo_box = GtkBox::new(Orientation::Horizontal, 12);
-
-    logo_box.set_margin_top(24);
-    logo_box.set_margin_start(22);
-    logo_box.set_margin_end(22);
-    logo_box.set_margin_bottom(24);
+    // Logo
+    let logo_area = GtkBox::new(Orientation::Horizontal, 12);
+    logo_area.set_margin_top(20);
+    logo_area.set_margin_start(18);
+    logo_area.set_margin_end(18);
+    logo_area.set_margin_bottom(28);
 
     let logo = Label::new(Some("N"));
     logo.add_css_class("logo");
@@ -71,235 +67,208 @@ fn build_ui(app: &Application) {
     let brand_box = GtkBox::new(Orientation::Vertical, 0);
 
     let brand = Label::new(Some("NovaDM"));
-    brand.add_css_class("brand-name");
-    brand.set_halign(Align::Start);
+    brand.add_css_class("brand");
 
-    let tagline = Label::new(Some("DOWNLOAD MANAGER"));
-    tagline.add_css_class("brand-tagline");
-    tagline.set_halign(Align::Start);
+    let subtitle = Label::new(Some("DOWNLOAD MANAGER"));
+    subtitle.add_css_class("brand-subtitle");
 
     brand_box.append(&brand);
-    brand_box.append(&tagline);
+    brand_box.append(&subtitle);
 
-    logo_box.append(&logo);
-    logo_box.append(&brand_box);
+    logo_area.append(&logo);
+    logo_area.append(&brand_box);
 
-    sidebar.append(&logo_box);
+    sidebar.append(&logo_area);
 
-    // ------------------------------------------------------------
-    // LIBRARY
-    // ------------------------------------------------------------
+    // Library title
+    let library_title = Label::new(Some("LIBRARY"));
+    library_title.set_xalign(0.0);
+    library_title.set_margin_start(18);
+    library_title.set_margin_bottom(8);
+    library_title.add_css_class("section-title");
 
-    let nav_title = Label::new(Some("LIBRARY"));
-    nav_title.add_css_class("section-label");
-    nav_title.set_halign(Align::Start);
-    nav_title.set_margin_start(22);
-    nav_title.set_margin_bottom(8);
+    sidebar.append(&library_title);
 
-    sidebar.append(&nav_title);
+    // Navigation
+    let overview = nav_button("⌂", "Overview", true);
+    let downloads = nav_button("↓", "Downloads", false);
+    let completed = nav_button("✓", "Completed", false);
 
-    let overview_button = sidebar_button("⌂", "Overview", true);
-    let downloads_button = sidebar_button("↓", "Downloads", false);
-    let completed_button = sidebar_button("✓", "Completed", false);
-
-    sidebar.append(&overview_button);
-    sidebar.append(&downloads_button);
-    sidebar.append(&completed_button);
-
-    // ------------------------------------------------------------
-    // SEPARATOR
-    // ------------------------------------------------------------
+    sidebar.append(&overview);
+    sidebar.append(&downloads);
+    sidebar.append(&completed);
 
     let separator = Separator::new(Orientation::Horizontal);
-
     separator.set_margin_top(18);
     separator.set_margin_bottom(18);
-    separator.set_margin_start(18);
-    separator.set_margin_end(18);
+    separator.set_margin_start(14);
+    separator.set_margin_end(14);
 
     sidebar.append(&separator);
 
-    // ------------------------------------------------------------
-    // TOOLS
-    // ------------------------------------------------------------
-
     let tools_title = Label::new(Some("TOOLS"));
-    tools_title.add_css_class("section-label");
-    tools_title.set_halign(Align::Start);
-    tools_title.set_margin_start(22);
+    tools_title.set_xalign(0.0);
+    tools_title.set_margin_start(18);
     tools_title.set_margin_bottom(8);
+    tools_title.add_css_class("section-title");
 
     sidebar.append(&tools_title);
 
-    let queue_button = sidebar_button("≡", "Queue", false);
-    let settings_button = sidebar_button("⚙", "Settings", false);
+    let queue = nav_button("≡", "Queue", false);
+    let settings = nav_button("⚙", "Settings", false);
 
-    sidebar.append(&queue_button);
-    sidebar.append(&settings_button);
+    sidebar.append(&queue);
+    sidebar.append(&settings);
 
-    // ------------------------------------------------------------
-    // SPACER
-    // ------------------------------------------------------------
+    // Engine status at bottom
+    let spacer = GtkBox::new(Orientation::Vertical, 0);
+    spacer.set_vexpand(true);
+    sidebar.append(&spacer);
 
-    let sidebar_spacer = GtkBox::new(Orientation::Vertical, 0);
-    sidebar_spacer.set_vexpand(true);
-
-    sidebar.append(&sidebar_spacer);
-
-    // ------------------------------------------------------------
-    // ENGINE STATUS
-    // ------------------------------------------------------------
-
-    let engine_box = GtkBox::new(Orientation::Vertical, 5);
-
-    engine_box.add_css_class("engine-box");
-
-    engine_box.set_margin_start(18);
-    engine_box.set_margin_end(18);
-    engine_box.set_margin_bottom(18);
+    let engine = GtkBox::new(Orientation::Vertical, 4);
+    engine.set_margin_start(14);
+    engine.set_margin_end(14);
+    engine.set_margin_bottom(18);
+    engine.set_margin_top(10);
+    engine.set_margin_end(18);
+    engine.add_css_class("engine-card");
 
     let engine_title = Label::new(Some("NOVADM ENGINE"));
+    engine_title.set_xalign(0.0);
     engine_title.add_css_class("engine-title");
-    engine_title.set_halign(Align::Start);
 
-    let engine_status = Label::new(Some("●  Ready"));
+    let engine_status = Label::new(Some("● Ready"));
+    engine_status.set_xalign(0.0);
     engine_status.add_css_class("engine-status");
-    engine_status.set_halign(Align::Start);
 
-    engine_box.append(&engine_title);
-    engine_box.append(&engine_status);
+    engine.append(&engine_title);
+    engine.append(&engine_status);
 
-    sidebar.append(&engine_box);
+    sidebar.append(&engine);
 
-    root.append(&sidebar);
+    sidebar
+}
 
-    // ============================================================
-    // MAIN CONTENT
-    // ============================================================
+fn nav_button(icon: &str, text: &str, active: bool) -> Button {
+    let button = Button::new();
 
+    button.set_hexpand(true);
+    button.set_halign(gtk::Align::Fill);
+
+    let row = GtkBox::new(Orientation::Horizontal, 14);
+
+    let icon_label = Label::new(Some(icon));
+    icon_label.add_css_class("nav-icon");
+
+    let text_label = Label::new(Some(text));
+    text_label.set_xalign(0.0);
+    text_label.add_css_class("nav-text");
+
+    row.append(&icon_label);
+    row.append(&text_label);
+
+    button.set_child(Some(&row));
+    button.add_css_class("nav-button");
+
+    if active {
+        button.add_css_class("nav-active");
+    }
+
+    button
+}
+
+fn build_content() -> GtkBox {
     let content = GtkBox::new(Orientation::Vertical, 0);
+    content.set_hexpand(true);
+    content.set_vexpand(true);
     content.add_css_class("content");
 
-    // ============================================================
-    // HEADER
-    // ============================================================
-
-    let header = GtkBox::new(Orientation::Horizontal, 0);
-
-    header.set_margin_start(32);
-    header.set_margin_end(32);
-    header.set_margin_top(26);
-    header.set_margin_bottom(20);
-
-    let title_box = GtkBox::new(Orientation::Vertical, 3);
-
-    let title = Label::new(Some("Overview"));
-    title.add_css_class("page-title");
-    title.set_halign(Align::Start);
-
-    let subtitle = Label::new(Some(
-        "Manage your downloads with NovaDM",
-    ));
-
-    subtitle.add_css_class("page-subtitle");
-    subtitle.set_halign(Align::Start);
-
-    title_box.append(&title);
-    title_box.append(&subtitle);
-
-    header.append(&title_box);
-
-    let header_spacer = GtkBox::new(Orientation::Horizontal, 0);
-    header_spacer.set_hexpand(true);
-
-    header.append(&header_spacer);
-
-    let add_button = Button::with_label("＋  Add Download");
-
-    add_button.add_css_class("primary-button");
-    add_button.set_height_request(44);
-
-    header.append(&add_button);
-
-    content.append(&header);
-
-    // ============================================================
-    // SCROLL AREA
-    // ============================================================
-
-    let scrolled = ScrolledWindow::new();
-
-    scrolled.set_vexpand(true);
-
-    scrolled.set_policy(
+    let scroll = ScrolledWindow::new();
+    scroll.set_hexpand(true);
+    scroll.set_vexpand(true);
+    scroll.set_policy(
         gtk::PolicyType::Never,
         gtk::PolicyType::Automatic,
     );
 
-    scrolled.add_css_class("main-scroll");
-
-    let page = GtkBox::new(Orientation::Vertical, 22);
-
+    let page = GtkBox::new(Orientation::Vertical, 0);
+    page.set_margin_top(24);
     page.set_margin_start(32);
     page.set_margin_end(32);
-    page.set_margin_bottom(32);
+    page.set_margin_bottom(30);
 
-    // ============================================================
-    // ADD DOWNLOAD CARD
-    // ============================================================
+    // Header
+    let header = GtkBox::new(Orientation::Horizontal, 0);
 
-    let add_card = GtkBox::new(Orientation::Vertical, 14);
-    add_card.add_css_class("hero-card");
+    let heading_box = GtkBox::new(Orientation::Vertical, 3);
+    heading_box.set_hexpand(true);
+
+    let heading = Label::new(Some("Overview"));
+    heading.set_xalign(0.0);
+    heading.add_css_class("page-title");
+
+    let description =
+        Label::new(Some("Manage your downloads with NovaDM"));
+    description.set_xalign(0.0);
+    description.add_css_class("page-description");
+
+    heading_box.append(&heading);
+    heading_box.append(&description);
+
+    let add_button = Button::with_label("+  Add Download");
+    add_button.add_css_class("pink-button");
+
+    header.append(&heading_box);
+    header.append(&add_button);
+
+    page.append(&header);
+
+    // Add download card
+    let add_card = GtkBox::new(Orientation::Vertical, 12);
+    add_card.set_margin_top(28);
+    add_card.set_margin_bottom(22);
+    add_card.set_margin_start(0);
+    add_card.set_margin_end(0);
+    add_card.add_css_class("card");
 
     let add_title = Label::new(Some("Add a new download"));
+    add_title.set_xalign(0.0);
     add_title.add_css_class("card-title");
-    add_title.set_halign(Align::Start);
 
     let add_description = Label::new(Some(
         "Paste a direct file or media URL and NovaDM will handle the rest.",
     ));
-
+    add_description.set_xalign(0.0);
     add_description.add_css_class("card-description");
-    add_description.set_halign(Align::Start);
-    add_description.set_wrap(true);
 
-    let url_row = GtkBox::new(Orientation::Horizontal, 10);
+    let input_row = GtkBox::new(Orientation::Horizontal, 10);
 
-    let url_entry = Entry::new();
-
+    let url_entry = gtk::Entry::new();
+    url_entry.set_hexpand(true);
     url_entry.set_placeholder_text(Some(
         "https://example.com/file.zip",
     ));
-
-    url_entry.set_hexpand(true);
-    url_entry.set_height_request(46);
     url_entry.add_css_class("url-entry");
 
     let paste_button = Button::with_label("Paste");
-
-    paste_button.add_css_class("secondary-button");
-    paste_button.set_height_request(46);
+    paste_button.add_css_class("text-button");
 
     let download_button = Button::with_label("Download");
+    download_button.add_css_class("download-button");
 
-    download_button.add_css_class("primary-button");
-    download_button.set_height_request(46);
-
-    url_row.append(&url_entry);
-    url_row.append(&paste_button);
-    url_row.append(&download_button);
+    input_row.append(&url_entry);
+    input_row.append(&paste_button);
+    input_row.append(&download_button);
 
     add_card.append(&add_title);
     add_card.append(&add_description);
-    add_card.append(&url_row);
+    add_card.append(&input_row);
 
     page.append(&add_card);
 
-    // ============================================================
-    // STAT CARDS
-    // ============================================================
-
-    let stats = GtkBox::new(Orientation::Horizontal, 16);
+    // Statistics
+    let stats = GtkBox::new(Orientation::Horizontal, 14);
+    stats.set_hexpand(true);
 
     let active_card = stat_card(
         "ACTIVE DOWNLOADS",
@@ -336,327 +305,136 @@ fn build_ui(app: &Application) {
 
     page.append(&stats);
 
-    // ============================================================
-    // CURRENT DOWNLOADS HEADER
-    // ============================================================
-
+    // Current downloads heading
     let current_header = GtkBox::new(Orientation::Horizontal, 0);
+    current_header.set_margin_top(30);
+    current_header.set_margin_bottom(12);
 
     let current_title = Label::new(Some("Current Downloads"));
-
-    current_title.add_css_class("section-title");
-    current_title.set_halign(Align::Start);
-
-    current_header.append(&current_title);
-
-    let current_spacer = GtkBox::new(Orientation::Horizontal, 0);
-    current_spacer.set_hexpand(true);
-
-    current_header.append(&current_spacer);
+    current_title.set_xalign(0.0);
+    current_title.set_hexpand(true);
+    current_title.add_css_class("section-heading");
 
     let view_all = Button::with_label("View all");
-    view_all.add_css_class("text-button");
+    view_all.add_css_class("link-button");
 
+    current_header.append(&current_title);
     current_header.append(&view_all);
 
     page.append(&current_header);
 
-    // ============================================================
-    // EMPTY STATE
-    // ============================================================
-
-    let empty_card = GtkBox::new(Orientation::Vertical, 8);
-
-    empty_card.add_css_class("empty-card");
+    // Empty download state
+    let empty = GtkBox::new(Orientation::Vertical, 8);
+    empty.set_height_request(165);
+    empty.set_valign(gtk::Align::Center);
+    empty.set_halign(gtk::Align::Fill);
+    empty.add_css_class("empty-card");
 
     let empty_icon = Label::new(Some("↓"));
     empty_icon.add_css_class("empty-icon");
-    empty_icon.set_halign(Align::Center);
 
-    let empty_title = Label::new(Some(
-        "No active downloads",
-    ));
-
+    let empty_title = Label::new(Some("No active downloads"));
     empty_title.add_css_class("empty-title");
-    empty_title.set_halign(Align::Center);
 
-    let empty_description = Label::new(Some(
-        "Add a URL above to start downloading.",
-    ));
-
+    let empty_description =
+        Label::new(Some("Add a URL above to start downloading."));
     empty_description.add_css_class("empty-description");
-    empty_description.set_halign(Align::Center);
 
-    empty_card.append(&empty_icon);
-    empty_card.append(&empty_title);
-    empty_card.append(&empty_description);
+    empty.append(&empty_icon);
+    empty.append(&empty_title);
+    empty.append(&empty_description);
 
-    page.append(&empty_card);
+    page.append(&empty);
 
-    // ============================================================
-    // DEMO DOWNLOAD CARD
-    // ============================================================
-
-    let demo_download = download_card(
-        "NovaDM-test-file.zip",
-        "https://example.com/NovaDM-test-file.zip",
-        67.0,
-        "6.42 MB / 9.58 MB",
-        "2.91 MB/s",
-        "00:01",
-    );
-
-    demo_download.set_visible(false);
-
-    page.append(&demo_download);
-
-    // ============================================================
-    // COMPLETED SECTION
-    // ============================================================
-
+    // Recently completed
     let completed_header = GtkBox::new(Orientation::Horizontal, 0);
+    completed_header.set_margin_top(30);
+    completed_header.set_margin_bottom(12);
 
-    completed_header.set_margin_top(4);
-
-    let completed_title = Label::new(Some(
-        "Recently Completed",
-    ));
-
-    completed_title.add_css_class("section-title");
-    completed_title.set_halign(Align::Start);
-
-    completed_header.append(&completed_title);
-
-    let completed_spacer = GtkBox::new(Orientation::Horizontal, 0);
-    completed_spacer.set_hexpand(true);
-
-    completed_header.append(&completed_spacer);
+    let recently_title = Label::new(Some("Recently Completed"));
+    recently_title.set_xalign(0.0);
+    recently_title.set_hexpand(true);
+    recently_title.add_css_class("section-heading");
 
     let clear_button = Button::with_label("Clear");
-    clear_button.add_css_class("text-button");
+    clear_button.add_css_class("link-button");
 
+    completed_header.append(&recently_title);
     completed_header.append(&clear_button);
 
     page.append(&completed_header);
 
-    let completed_empty = GtkBox::new(Orientation::Horizontal, 0);
+    let completed_empty = GtkBox::new(Orientation::Horizontal, 12);
+    completed_empty.set_height_request(62);
+    completed_empty.set_margin_start(16);
+    completed_empty.set_margin_end(16);
 
-    completed_empty.add_css_class("completed-empty");
+    let check = Label::new(Some("✓"));
+    check.add_css_class("completed-icon");
 
-    let completed_empty_icon = Label::new(Some("✓"));
+    let completed_text =
+        Label::new(Some("Your completed downloads will appear here."));
+    completed_text.set_xalign(0.0);
+    completed_text.add_css_class("completed-text");
 
-    completed_empty_icon.add_css_class("completed-icon");
-
-    let completed_empty_text = Label::new(Some(
-        "Your completed downloads will appear here.",
-    ));
-
-    completed_empty_text.add_css_class("completed-text");
-    completed_empty_text.set_halign(Align::Start);
-
-    completed_empty.append(&completed_empty_icon);
-    completed_empty.append(&completed_empty_text);
+    completed_empty.append(&check);
+    completed_empty.append(&completed_text);
+    completed_empty.add_css_class("completed-card");
 
     page.append(&completed_empty);
 
-    // ============================================================
-    // FOOTER
-    // ============================================================
+    // Bottom status
+    let status_bar = GtkBox::new(Orientation::Horizontal, 0);
+    status_bar.set_margin_top(20);
 
-    let footer = GtkBox::new(Orientation::Horizontal, 0);
+    let status = Label::new(Some("●  NovaDM Engine Ready"));
+    status.set_xalign(0.0);
+    status.set_hexpand(true);
+    status.add_css_class("status-ready");
 
-    footer.add_css_class("footer");
+    let connections =
+        Label::new(Some("Connections: 0 / 4  •  v0.1.0"));
+    connections.set_xalign(1.0);
+    connections.add_css_class("status-info");
 
-    let footer_status = Label::new(Some(
-        "●  NovaDM Engine Ready",
-    ));
+    status_bar.append(&status);
+    status_bar.append(&connections);
 
-    footer_status.add_css_class("footer-status");
+    page.append(&status_bar);
 
-    let footer_spacer = GtkBox::new(Orientation::Horizontal, 0);
-    footer_spacer.set_hexpand(true);
+    // Basic button interactions
+    let entry_for_paste = url_entry.clone();
 
-    let footer_connections = Label::new(Some(
-        "Connections: 0 / 4",
-    ));
+    paste_button.connect_clicked(move |_| {
+        if let Some(display) = gtk::gdk::Display::default() {
+            let clipboard = display.clipboard();
+            let entry = entry_for_paste.clone();
 
-    footer_connections.add_css_class("footer-text");
+            glib::MainContext::default().spawn_local(async move {
+                if let Ok(Some(text)) =
+                    clipboard.read_text_future().await
+                {
+                    entry.set_text(&text);
+                }
+            });
+        }
+    });
 
-    let footer_separator = Label::new(Some("  •  "));
-    footer_separator.add_css_class("footer-text");
+    let entry_for_download = url_entry.clone();
 
-    let footer_version = Label::new(Some("v0.1.0"));
-    footer_version.add_css_class("footer-text");
+    download_button.connect_clicked(move |_| {
+        let url = entry_for_download.text();
 
-    footer.append(&footer_status);
-    footer.append(&footer_spacer);
-    footer.append(&footer_connections);
-    footer.append(&footer_separator);
-    footer.append(&footer_version);
+        if !url.is_empty() {
+            println!("NovaDM: download requested: {}", url);
+        }
+    });
 
-    // ============================================================
-    // PASTE BUTTON
-    // ============================================================
+    scroll.set_child(Some(&page));
+    content.append(&scroll);
 
-    {
-        let entry = url_entry.clone();
-
-        paste_button.connect_clicked(move |_| {
-            if let Some(display) = gtk::gdk::Display::default() {
-                let clipboard = display.clipboard();
-
-                let entry_clone = entry.clone();
-
-                glib::MainContext::default().spawn_local(
-                    async move {
-                        if let Ok(Some(text)) =
-                            clipboard.read_text_future().await
-                        {
-                            entry_clone.set_text(&text);
-                        }
-                    },
-                );
-            }
-        });
-    }
-
-    // ============================================================
-    // ADD DOWNLOAD BUTTON
-    // ============================================================
-
-    {
-        let entry = url_entry.clone();
-
-        add_button.connect_clicked(move |_| {
-            entry.grab_focus();
-        });
-    }
-
-    // ============================================================
-    // DOWNLOAD BUTTON
-    // ============================================================
-
-    {
-        let entry = url_entry.clone();
-
-        download_button.connect_clicked(move |button| {
-            let url = entry.text().trim().to_string();
-
-            if url.is_empty() {
-                entry.add_css_class("error-entry");
-                entry.grab_focus();
-
-                return;
-            }
-
-            entry.remove_css_class("error-entry");
-
-            button.set_label("Added ✓");
-
-            let button_clone = button.clone();
-
-            glib::timeout_add_local(
-                std::time::Duration::from_millis(1200),
-                move || {
-                    button_clone.set_label("Download");
-
-                    glib::ControlFlow::Break
-                },
-            );
-
-            println!(
-                "NovaDM GUI received URL: {}",
-                url
-            );
-        });
-    }
-
-    // ============================================================
-    // CLEAR BUTTON
-    // ============================================================
-
-    {
-        let completed_empty = completed_empty.clone();
-
-        clear_button.connect_clicked(move |_| {
-            completed_empty.set_visible(true);
-        });
-    }
-
-    // ============================================================
-    // FINAL ASSEMBLY
-    // ============================================================
-
-    scrolled.set_child(Some(&page));
-
-    content.append(&scrolled);
-    content.append(&footer);
-
-    root.append(&content);
-
-    window.set_content(Some(&root));
-
-    window.present();
+    content
 }
-
-// ================================================================
-// SIDEBAR BUTTON
-// ================================================================
-
-fn sidebar_button(
-    icon: &str,
-    text: &str,
-    active: bool,
-) -> Button {
-    let button = Button::new();
-
-    button.set_halign(Align::Fill);
-    button.set_hexpand(true);
-    button.set_height_request(46);
-
-    button.add_css_class("sidebar-button");
-
-    if active {
-        button.add_css_class(
-            "sidebar-button-active",
-        );
-    }
-
-    let row = GtkBox::new(
-        Orientation::Horizontal,
-        13,
-    );
-
-    row.set_margin_start(16);
-    row.set_margin_end(16);
-
-    let icon_label = Label::new(Some(icon));
-
-    icon_label.add_css_class(
-        "sidebar-icon",
-    );
-
-    let text_label = Label::new(Some(text));
-
-    text_label.add_css_class(
-        "sidebar-text",
-    );
-
-    text_label.set_halign(
-        Align::Start,
-    );
-
-    row.append(&icon_label);
-    row.append(&text_label);
-
-    button.set_child(Some(&row));
-
-    button
-}
-
-// ================================================================
-// STAT CARD
-// ================================================================
 
 fn stat_card(
     title: &str,
@@ -664,710 +442,334 @@ fn stat_card(
     description: &str,
     icon: &str,
 ) -> GtkBox {
-    let card = GtkBox::new(
-        Orientation::Vertical,
-        6,
-    );
-
+    let card = GtkBox::new(Orientation::Vertical, 6);
+    card.set_hexpand(true);
+    card.set_height_request(128);
+    card.set_margin_top(0);
+    card.set_margin_bottom(0);
+    card.set_margin_start(0);
+    card.set_margin_end(0);
     card.add_css_class("stat-card");
 
-    card.set_hexpand(true);
-    card.set_size_request(0, 128);
-
-    let top = GtkBox::new(
-        Orientation::Horizontal,
-        0,
-    );
+    let top = GtkBox::new(Orientation::Horizontal, 0);
 
     let title_label = Label::new(Some(title));
-
-    title_label.add_css_class(
-        "stat-title",
-    );
-
-    title_label.set_halign(
-        Align::Start,
-    );
-
-    let spacer = GtkBox::new(
-        Orientation::Horizontal,
-        0,
-    );
-
-    spacer.set_hexpand(true);
+    title_label.set_xalign(0.0);
+    title_label.set_hexpand(true);
+    title_label.add_css_class("stat-title");
 
     let icon_label = Label::new(Some(icon));
-
-    icon_label.add_css_class(
-        "stat-icon",
-    );
+    icon_label.add_css_class("stat-icon");
 
     top.append(&title_label);
-    top.append(&spacer);
     top.append(&icon_label);
 
     let value_label = Label::new(Some(value));
+    value_label.set_xalign(0.0);
+    value_label.add_css_class("stat-value");
 
-    value_label.add_css_class(
-        "stat-value",
-    );
-
-    value_label.set_halign(
-        Align::Start,
-    );
-
-    let description_label =
-        Label::new(Some(description));
-
-    description_label.add_css_class(
-        "stat-description",
-    );
-
-    description_label.set_halign(
-        Align::Start,
-    );
+    let desc_label = Label::new(Some(description));
+    desc_label.set_xalign(0.0);
+    desc_label.add_css_class("stat-description");
 
     card.append(&top);
     card.append(&value_label);
-    card.append(&description_label);
+    card.append(&desc_label);
 
     card
 }
-
-// ================================================================
-// DOWNLOAD CARD
-// ================================================================
-
-fn download_card(
-    filename: &str,
-    url: &str,
-    progress: f64,
-    size: &str,
-    speed: &str,
-    eta: &str,
-) -> GtkBox {
-    let card = GtkBox::new(
-        Orientation::Vertical,
-        12,
-    );
-
-    card.add_css_class(
-        "download-card",
-    );
-
-    // ------------------------------------------------------------
-    // TOP
-    // ------------------------------------------------------------
-
-    let top = GtkBox::new(
-        Orientation::Horizontal,
-        12,
-    );
-
-    let file_icon = Label::new(Some("↓"));
-
-    file_icon.add_css_class(
-        "file-icon",
-    );
-
-    let info = GtkBox::new(
-        Orientation::Vertical,
-        3,
-    );
-
-    info.set_hexpand(true);
-
-    let name = Label::new(Some(filename));
-
-    name.add_css_class(
-        "download-name",
-    );
-
-    name.set_halign(
-        Align::Start,
-    );
-
-    let url_label = Label::new(Some(url));
-
-    url_label.add_css_class(
-        "download-url",
-    );
-
-    url_label.set_halign(
-        Align::Start,
-    );
-
-    url_label.set_ellipsize(
-        gtk::pango::EllipsizeMode::Middle,
-    );
-
-    info.append(&name);
-    info.append(&url_label);
-
-    let percentage =
-        Label::new(Some(
-            &format!("{:.0}%", progress),
-        ));
-
-    percentage.add_css_class(
-        "download-percentage",
-    );
-
-    percentage.set_halign(
-        Align::End,
-    );
-
-    top.append(&file_icon);
-    top.append(&info);
-    top.append(&percentage);
-
-    // ------------------------------------------------------------
-    // PROGRESS
-    // ------------------------------------------------------------
-
-    let progress_bar =
-        ProgressBar::new();
-
-    progress_bar.set_fraction(
-        progress / 100.0,
-    );
-
-    progress_bar.add_css_class(
-        "pink-progress",
-    );
-
-    // ------------------------------------------------------------
-    // BOTTOM
-    // ------------------------------------------------------------
-
-    let bottom = GtkBox::new(
-        Orientation::Horizontal,
-        0,
-    );
-
-    let size_label =
-        Label::new(Some(size));
-
-    size_label.add_css_class(
-        "download-meta",
-    );
-
-    let spacer = GtkBox::new(
-        Orientation::Horizontal,
-        0,
-    );
-
-    spacer.set_hexpand(true);
-
-    let speed_label =
-        Label::new(Some(speed));
-
-    speed_label.add_css_class(
-        "download-speed",
-    );
-
-    let eta_label =
-        Label::new(Some(
-            &format!("ETA {}", eta),
-        ));
-
-    eta_label.add_css_class(
-        "download-meta",
-    );
-
-    eta_label.set_margin_start(15);
-
-    let pause =
-        Button::with_label("Pause");
-
-    pause.add_css_class(
-        "small-button",
-    );
-
-    pause.set_margin_start(15);
-
-    let cancel =
-        Button::with_label("×");
-
-    cancel.add_css_class(
-        "danger-button",
-    );
-
-    cancel.set_margin_start(7);
-
-    bottom.append(&size_label);
-    bottom.append(&spacer);
-    bottom.append(&speed_label);
-    bottom.append(&eta_label);
-    bottom.append(&pause);
-    bottom.append(&cancel);
-
-    card.append(&top);
-    card.append(&progress_bar);
-    card.append(&bottom);
-
-    card
-}
-
-// ================================================================
-// CSS
-// ================================================================
 
 fn load_css() {
-    let provider =
-        CssProvider::new();
+    let provider = gtk::CssProvider::new();
 
     provider.load_from_data(
         r#"
         * {
-            font-family: "Inter", "Cantarell", sans-serif;
+            font-family: Sans;
         }
 
         window {
-            background: #0c0910;
+            background: #0c090f;
         }
 
-        .app-root {
-            background: #0c0910;
+        .main-window {
+            background: #0c090f;
         }
-
-        /* ========================================================
-           SIDEBAR
-           ======================================================== */
 
         .sidebar {
-            background: #110d16;
-            border-right: 1px solid #28202d;
+            background: #100c14;
+            border-right: 1px solid #2a202d;
         }
 
         .logo {
-            background: #ff3b9d;
-            color: #ffffff;
-            font-size: 21px;
+            background: #ff329b;
+            color: white;
+            border-radius: 14px;
+            padding: 10px 15px;
+            font-size: 22px;
             font-weight: 900;
-            border-radius: 13px;
-            min-width: 44px;
-            min-height: 44px;
-            padding: 8px;
         }
 
-        .brand-name {
+        .brand {
             color: #ffffff;
             font-size: 21px;
             font-weight: 800;
         }
 
-        .brand-tagline {
-            color: #8d8292;
+        .brand-subtitle {
+            color: #756a79;
             font-size: 8px;
             font-weight: 800;
-            letter-spacing: 1.4px;
+            letter-spacing: 2px;
         }
 
-        .section-label {
-            color: #766b7b;
+        .section-title {
+            color: #716675;
             font-size: 10px;
             font-weight: 800;
-            letter-spacing: 1.3px;
+            letter-spacing: 1.5px;
         }
 
-        .sidebar-button {
-            background: transparent;
-            color: #aaa0ae;
+        .nav-button {
+            min-height: 42px;
+            margin: 2px 10px;
+            padding: 0 14px;
             border-radius: 10px;
-            margin-left: 12px;
-            margin-right: 12px;
+            background: transparent;
             border: none;
-            box-shadow: none;
+            color: #b3a9b7;
         }
 
-        .sidebar-button:hover {
-            background: #1c1520;
-            color: #ffffff;
+        .nav-button:hover {
+            background: #1b1420;
         }
 
-        .sidebar-button-active {
-            background: #241323;
-            color: #ff5eac;
+        .nav-active {
+            background: #291529;
+            color: #ff3ba0;
         }
 
-        .sidebar-button-active:hover {
-            background: #2b1728;
+        .nav-icon {
+            min-width: 20px;
+            color: #b5a9b9;
+            font-size: 17px;
         }
 
-        .sidebar-icon {
-            font-size: 18px;
-            min-width: 24px;
+        .nav-active .nav-icon {
+            color: #ff3ba0;
         }
 
-        .sidebar-text {
+        .nav-text {
+            color: inherit;
             font-size: 14px;
             font-weight: 600;
         }
 
-        .engine-box {
-            background: #17111c;
-            border: 1px solid #2b2130;
+        .engine-card {
+            background: #17111b;
+            border: 1px solid #302333;
             border-radius: 12px;
             padding: 13px;
         }
 
         .engine-title {
-            color: #766b7b;
+            color: #766a7b;
             font-size: 9px;
             font-weight: 800;
-            letter-spacing: 1px;
+            letter-spacing: 1.2px;
         }
 
         .engine-status {
-            color: #ff55a7;
+            color: #ff3ba0;
             font-size: 12px;
             font-weight: 700;
         }
 
-        /* ========================================================
-           CONTENT
-           ======================================================== */
-
         .content {
-            background: #0c0910;
+            background: #0c090f;
         }
 
         .page-title {
             color: #ffffff;
             font-size: 30px;
-            font-weight: 800;
+            font-weight: 900;
         }
 
-        .page-subtitle {
-            color: #8d8292;
+        .page-description {
+            color: #786d7d;
             font-size: 13px;
         }
 
-        /* ========================================================
-           BUTTONS
-           ======================================================== */
-
-        .primary-button {
-            background: #ff3b9d;
+        .pink-button {
+            background: #ff329b;
             color: #ffffff;
-            border-radius: 11px;
-            border: none;
-            padding-left: 18px;
-            padding-right: 18px;
-            font-weight: 750;
-            font-size: 13px;
-        }
-
-        .primary-button:hover {
-            background: #ff55aa;
-        }
-
-        .primary-button:active {
-            background: #e62d8c;
-        }
-
-        .secondary-button {
-            background: #211923;
-            color: #e9e1eb;
-            border: 1px solid #362b39;
-            border-radius: 10px;
-            padding-left: 17px;
-            padding-right: 17px;
-            font-weight: 650;
-        }
-
-        .secondary-button:hover {
-            background: #2b202f;
-        }
-
-        .text-button {
-            background: transparent;
-            color: #ff4fa6;
-            border: none;
-            font-size: 12px;
+            border-radius: 9px;
+            padding: 10px 18px;
             font-weight: 700;
+            border: none;
         }
 
-        .text-button:hover {
-            color: #ff80bd;
+        .pink-button:hover {
+            background: #ff4ba8;
         }
 
-        /* ========================================================
-           ADD DOWNLOAD
-           ======================================================== */
-
-        .hero-card {
-            background: #151019;
-            border: 1px solid #2c2230;
-            border-radius: 17px;
+        .card {
+            background: #151017;
+            border: 1px solid #302433;
+            border-radius: 16px;
             padding: 22px;
         }
 
         .card-title {
             color: #ffffff;
-            font-size: 17px;
-            font-weight: 750;
+            font-size: 18px;
+            font-weight: 800;
         }
 
         .card-description {
-            color: #887d8e;
+            color: #786d7d;
             font-size: 12px;
         }
 
         .url-entry {
-            background: #0e0a12;
-            color: #ffffff;
-            border: 1px solid #34283a;
+            min-height: 44px;
+            background: #0e0a11;
+            border: 1px solid #3b2d40;
             border-radius: 10px;
-            padding-left: 15px;
-            padding-right: 15px;
-            font-size: 13px;
-            box-shadow: none;
+            color: #ffffff;
+            padding: 0 14px;
         }
 
         .url-entry:focus {
-            border: 1px solid #ff3b9d;
-            box-shadow: 0 0 0 1px #ff3b9d;
+            border-color: #ff329b;
         }
 
-        .error-entry {
-            border: 1px solid #ff4c8b;
+        .text-button {
+            color: #ff45a5;
+            background: transparent;
+            border: none;
+            font-weight: 700;
+            padding: 10px 15px;
         }
 
-        /* ========================================================
-           STATS
-           ======================================================== */
+        .download-button {
+            background: #ff329b;
+            color: white;
+            border-radius: 9px;
+            border: none;
+            padding: 10px 18px;
+            font-weight: 800;
+        }
 
         .stat-card {
-            background: #151019;
-            border: 1px solid #2a212f;
+            background: #151017;
+            border: 1px solid #302433;
             border-radius: 15px;
             padding: 17px;
         }
 
-        .stat-card:hover {
-            border-color: #443448;
-        }
-
         .stat-title {
-            color: #827787;
+            color: #776c7d;
             font-size: 9px;
             font-weight: 800;
             letter-spacing: 1px;
         }
 
         .stat-icon {
-            color: #ff4da6;
-            font-size: 18px;
-            font-weight: 800;
+            color: #ff3ba0;
+            font-size: 19px;
+            font-weight: 900;
         }
 
         .stat-value {
             color: #ffffff;
             font-size: 24px;
-            font-weight: 800;
+            font-weight: 900;
+            margin-top: 5px;
         }
 
         .stat-description {
-            color: #756b7b;
+            color: #716674;
             font-size: 10px;
         }
 
-        /* ========================================================
-           SECTIONS
-           ======================================================== */
-
-        .section-title {
+        .section-heading {
             color: #ffffff;
             font-size: 17px;
-            font-weight: 750;
-        }
-
-        /* ========================================================
-           EMPTY STATE
-           ======================================================== */
-
-        .empty-card {
-            background: #110d15;
-            border: 1px dashed #312735;
-            border-radius: 15px;
-            padding: 38px;
-        }
-
-        .empty-icon {
-            color: #ff4fa6;
-            font-size: 34px;
             font-weight: 800;
         }
 
+        .link-button {
+            color: #ff3ba0;
+            background: transparent;
+            border: none;
+            font-weight: 700;
+        }
+
+        .empty-card {
+            background: #0f0b12;
+            border: 1px dashed #3a2b3e;
+            border-radius: 15px;
+        }
+
+        .empty-icon {
+            color: #ff3ba0;
+            font-size: 27px;
+            font-weight: 900;
+        }
+
         .empty-title {
-            color: #ded6e0;
-            font-size: 14px;
+            color: #d5ccd8;
+            font-size: 13px;
             font-weight: 700;
         }
 
         .empty-description {
-            color: #706675;
+            color: #716675;
             font-size: 11px;
         }
 
-        /* ========================================================
-           DOWNLOAD CARD
-           ======================================================== */
-
-        .download-card {
-            background: #151019;
-            border: 1px solid #2c2231;
-            border-radius: 15px;
-            padding: 18px;
-        }
-
-        .file-icon {
-            background: #291525;
-            color: #ff50a6;
-            border-radius: 11px;
-            min-width: 43px;
-            min-height: 43px;
-            padding: 8px;
-            font-size: 22px;
-            font-weight: 800;
-        }
-
-        .download-name {
-            color: #ffffff;
-            font-size: 13px;
-            font-weight: 700;
-        }
-
-        .download-url {
-            color: #716776;
-            font-size: 10px;
-        }
-
-        .download-percentage {
-            color: #ff4fa6;
-            font-size: 18px;
-            font-weight: 800;
-        }
-
-        .pink-progress {
-            min-height: 7px;
-        }
-
-        .pink-progress trough {
-            background: #251d29;
-            border-radius: 10px;
-            min-height: 7px;
-        }
-
-        .pink-progress progress {
-            background: #ff3b9d;
-            border-radius: 10px;
-            min-height: 7px;
-        }
-
-        .download-meta {
-            color: #827787;
-            font-size: 10px;
-        }
-
-        .download-speed {
-            color: #ff5baa;
-            font-size: 11px;
-            font-weight: 700;
-        }
-
-        .small-button {
-            background: #211923;
-            color: #cfc5d2;
-            border: 1px solid #372c3b;
-            border-radius: 8px;
-            font-size: 10px;
-            font-weight: 700;
-        }
-
-        .small-button:hover {
-            background: #2c2130;
-        }
-
-        .danger-button {
-            background: #24151f;
-            color: #ff719f;
-            border: 1px solid #3a2531;
-            border-radius: 8px;
-            font-size: 13px;
-            font-weight: 800;
-            min-width: 32px;
-        }
-
-        .danger-button:hover {
-            background: #351b29;
-        }
-
-        /* ========================================================
-           COMPLETED
-           ======================================================== */
-
-        .completed-empty {
-            background: #110d15;
-            border: 1px solid #241d29;
+        .completed-card {
+            background: #110d14;
+            border: 1px solid #2b222f;
             border-radius: 13px;
-            padding: 17px;
+            padding: 12px;
         }
 
         .completed-icon {
-            color: #ff4fa6;
+            color: #ff3ba0;
             font-size: 17px;
-            font-weight: 800;
-            margin-right: 11px;
+            font-weight: 900;
         }
 
         .completed-text {
-            color: #716776;
+            color: #756a79;
             font-size: 11px;
         }
 
-        /* ========================================================
-           FOOTER
-           ======================================================== */
-
-        .footer {
-            background: #110d15;
-            border-top: 1px solid #27202c;
-            padding: 9px 24px;
-        }
-
-        .footer-status {
-            color: #ff50a6;
+        .status-ready {
+            color: #ff3ba0;
             font-size: 10px;
             font-weight: 700;
         }
 
-        .footer-text {
+        .status-info {
             color: #625967;
             font-size: 10px;
         }
 
-        /* ========================================================
-           SCROLLBAR
-           ======================================================== */
-
         scrollbar slider {
-            background: #3b2d40;
-            border-radius: 10px;
-            min-width: 7px;
+            background: #3a2d40;
+            border-radius: 8px;
         }
 
         scrollbar slider:hover {
-            background: #ff3b9d;
+            background: #ff329b;
         }
         "#,
     );
 
-    if let Some(display) =
-        gtk::gdk::Display::default()
-    {
+    if let Some(display) = gtk::gdk::Display::default() {
         gtk::style_context_add_provider_for_display(
             &display,
             &provider,
